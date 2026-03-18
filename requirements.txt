@@ -1,0 +1,14 @@
+# ClawPot 相依套件
+
+# 核心相依（Python 標準函式庫，無需安裝）
+# - json, logging, signal, pathlib, dataclasses, enum, re
+
+# 可選相依（用於進階功能）
+# psutil>=5.9.0          # 進程與系統資源監控
+# watchdog>=3.0.0        # 檔案系統監控
+# scapy>=2.5.0           # 網路封包分析（需要 root 權限）
+# colorama>=0.4.6        # Windows 終端顏色支援
+
+# 開發相依
+pytest>=7.0.0
+pytest-cov>=4.0.0
