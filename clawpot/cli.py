@@ -14,6 +14,29 @@ from .logger import ClawPotLogger
 from .report.reporter import Reporter
 from .honeypot import HoneypotManager
 from .rules.openclaw_rules import Severity
+from .runner import ClawPotRunner
+
+
+def cmd_run(args):
+    """啟動 ClawPot 監控，然後執行目標程式（OpenClaw）"""
+    if not args.command_args:
+        print("❌ 請指定要執行的程式，例如:")
+        print("   clawpot run openclaw")
+        print("   clawpot run openclaw --some-flag")
+        print("   clawpot run -- /path/to/openclaw arg1 arg2")
+        sys.exit(1)
+
+    runner = ClawPotRunner(
+        command=args.command_args,
+        verbose=args.verbose,
+        no_honeypot=args.no_honeypot,
+        alert_on_severity=Severity(args.alert_level),
+        poll_interval=args.interval,
+        report_on_exit=not args.no_report,
+        report_format=args.report_format,
+    )
+    exit_code = runner.run()
+    sys.exit(exit_code)
 
 
 def cmd_monitor(args):
@@ -155,21 +178,45 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 範例:
-  clawpot monitor                    # 啟動監控
+  clawpot run openclaw               # 啟動監控，然後執行 openclaw
+  clawpot run -- openclaw --flag     # 傳遞參數給 openclaw
+  clawpot run -v openclaw            # 詳細模式（顯示所有檔案/網路活動）
+  clawpot run --no-report openclaw   # 結束後不顯示報告
+  clawpot monitor                    # 獨立監控模式（不啟動任何程式）
   clawpot monitor --pid 1234         # 監控指定 PID
-  clawpot monitor --verbose          # 詳細輸出
   clawpot report                     # 產生文字報告
-  clawpot report --format json       # 產生 JSON 報告
-  clawpot events                     # 查看所有事件
   clawpot events --severity critical # 只看嚴重事件
   clawpot honeypot deploy            # 部署蜜罐
-  clawpot honeypot status            # 查看蜜罐狀態
   clawpot rules                      # 查看所有規則
         """,
     )
     parser.add_argument("--version", action="version", version=f"ClawPot {__version__}")
 
     subparsers = parser.add_subparsers(dest="command", help="子命令")
+
+    # run 子命令（主要使用方式）
+    run_parser = subparsers.add_parser(
+        "run",
+        help="啟動 ClawPot 監控，然後執行目標程式",
+        description="先部署蜜罐並啟動監控，再以子進程方式執行目標程式（OpenClaw），全程追蹤其行為。",
+    )
+    run_parser.add_argument("command_args", nargs=argparse.REMAINDER, help="要執行的程式與參數")
+    run_parser.add_argument("--verbose", "-v", action="store_true", help="顯示所有檔案存取與網路連線")
+    run_parser.add_argument("--no-honeypot", action="store_true", help="不部署蜜罐誘餌")
+    run_parser.add_argument("--no-report", action="store_true", help="結束後不顯示報告")
+    run_parser.add_argument(
+        "--alert-level",
+        default="medium",
+        choices=["low", "medium", "high", "critical"],
+        help="警報觸發門檻（預設: medium）",
+    )
+    run_parser.add_argument("--interval", type=float, default=1.0, help="監控輪詢間隔秒數（預設: 1.0）")
+    run_parser.add_argument(
+        "--report-format",
+        default="text",
+        choices=["text", "json"],
+        help="結束報告格式（預設: text）",
+    )
 
     # monitor 子命令
     monitor_parser = subparsers.add_parser("monitor", help="啟動即時監控")
@@ -237,6 +284,7 @@ def main():
         sys.exit(0)
 
     commands = {
+        "run": cmd_run,
         "monitor": cmd_monitor,
         "report": cmd_report,
         "events": cmd_events,
