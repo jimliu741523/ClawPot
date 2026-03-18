@@ -1,137 +1,148 @@
-# ClawPot 🪤
+# ClawPot
 
-**ClawPot** 是一個專為 OpenClaw 設計的蜜罐監控系統，用於偵測、記錄並揭露 OpenClaw 的非法行為，讓使用者能即時觀察並保護自身權益。
-
----
-
-## 專案目標
-
-OpenClaw 在運作過程中可能存在以下非法或不當行為：
-
-- **未授權資料蒐集**：在未告知使用者的情況下蒐集個人資料
-- **隱私侵犯**：存取超出必要範圍的系統資源
-- **惡意網路活動**：連線至未知第三方伺服器、資料外洩
-- **系統資源濫用**：未授權使用 CPU、記憶體或儲存空間
-- **行為追蹤**：追蹤使用者操作紀錄並回傳外部伺服器
-
-ClawPot 的目的是**讓這些行為無所遁形**，提供透明的監控視角給使用者。
+**ClawPot** is a honeypot monitoring system designed for OpenClaw. It detects, logs, and exposes OpenClaw's illegal behaviors, giving users real-time visibility and evidence of unauthorized activity.
 
 ---
 
-## 功能特色
+## Goals
 
-- **即時監控**：監控 OpenClaw 的網路連線、檔案存取與系統呼叫
-- **行為偵測**：根據規則庫自動識別可疑與非法行為
-- **完整日誌**：所有偵測到的事件均有詳細時間戳記錄
-- **警報通知**：發現異常行為時即時提醒使用者
-- **報告產生**：產生可讀的行為分析報告
-- **蜜罐誘捕**：設置誘餌資料，觀察 OpenClaw 是否嘗試存取
+OpenClaw may engage in the following illegal or unethical behaviors:
+
+- **Unauthorized data collection** — harvesting personal data without user consent
+- **Privacy violations** — accessing system resources beyond what is necessary
+- **Malicious network activity** — connecting to unknown third-party servers, exfiltrating data
+- **Resource abuse** — unauthorized use of CPU, memory, or storage
+- **Behavior tracking** — recording user actions and sending them to external servers
+
+ClawPot's goal is to **make these behaviors visible**, providing users with a transparent monitoring layer.
 
 ---
 
-## 安裝
+## Features
+
+- **Real-time monitoring** — tracks OpenClaw's network connections, file access, and system calls
+- **Behavior detection** — automatically identifies suspicious and illegal activity using a rule engine
+- **Full event log** — every detected event is recorded with a detailed timestamp
+- **Alert notifications** — instant alerts when anomalous behavior is found
+- **Report generation** — produces human-readable and JSON behavior analysis reports
+- **Honeypot traps** — deploys bait files to catch OpenClaw accessing what it shouldn't
+
+---
+
+## Installation
 
 ```bash
 git clone https://github.com/jimliu741523/ClawPot.git
 cd ClawPot
-pip install -r requirements.txt
 pip install -e .
 ```
 
 ---
 
-## 快速開始
+## Quick Start
 
-### 啟動監控
+### Launch with monitoring (recommended)
 
 ```bash
-# 啟動即時監控
+# Start ClawPot first, then launch openclaw under monitoring
+clawpot run openclaw
+
+# Pass arguments to openclaw
+clawpot run -- openclaw --config /path/to/config
+
+# Verbose: show every file and network activity observed
+clawpot run -v openclaw
+
+# Skip the final report
+clawpot run --no-report openclaw
+```
+
+### Standalone monitoring
+
+```bash
+# Monitor without launching a program (attach to existing process)
 clawpot monitor
-
-# 監控並輸出詳細資訊
-clawpot monitor --verbose
-
-# 指定監控目標 PID
-clawpot monitor --pid <openclaw_pid>
+clawpot monitor --pid 1234
 ```
 
-### 查看報告
+### View reports and events
 
 ```bash
-# 產生行為分析報告
-clawpot report
-
-# 查看今日事件
-clawpot events --today
-
-# 匯出報告為 JSON
-clawpot report --format json --output report.json
+clawpot report                      # Generate text report
+clawpot report --format json        # Generate JSON report
+clawpot events                      # List all events
+clawpot events --severity critical  # Show only critical events
 ```
 
-### 蜜罐設置
+### Honeypot management
 
 ```bash
-# 部署蜜罐誘餌
-clawpot honeypot deploy
-
-# 查看蜜罐觸發紀錄
-clawpot honeypot status
+clawpot honeypot deploy             # Deploy all bait files
+clawpot honeypot status             # Check if any bait was accessed
+clawpot honeypot remove             # Remove all bait files
 ```
 
 ---
 
-## 專案結構
+## Project Structure
 
 ```
 ClawPot/
 ├── clawpot/
-│   ├── __init__.py
-│   ├── cli.py              # 命令列介面
-│   ├── monitor.py          # 核心監控引擎
-│   ├── detector.py         # 非法行為偵測器
-│   ├── honeypot.py         # 蜜罐模組
-│   ├── logger.py           # 日誌系統
+│   ├── cli.py                  # Command-line interface
+│   ├── runner.py               # Launcher: monitor + launch target
+│   ├── monitor.py              # Core monitoring engine
+│   ├── detector.py             # Behavior detector
+│   ├── watcher.py              # Process watcher (/proc interface)
+│   ├── honeypot.py             # Honeypot module
+│   ├── logger.py               # Event logging system
 │   ├── rules/
-│   │   ├── __init__.py
-│   │   └── openclaw_rules.py  # OpenClaw 行為規則庫
+│   │   └── openclaw_rules.py   # OpenClaw detection rule set
 │   └── report/
-│       ├── __init__.py
-│       └── reporter.py     # 報告產生器
+│       └── reporter.py         # Report generator
 ├── tests/
-│   ├── __init__.py
 │   ├── test_detector.py
 │   ├── test_honeypot.py
-│   └── test_monitor.py
+│   └── test_runner.py
 ├── examples/
 │   └── basic_usage.py
 ├── requirements.txt
-├── setup.py
-└── README.md
+└── setup.py
 ```
 
 ---
 
-## 偵測規則
+## Detection Rules
 
-ClawPot 使用規則引擎來識別 OpenClaw 的非法行為，規則分類如下：
+ClawPot uses a rule engine to identify illegal OpenClaw behaviors:
 
-| 類別 | 嚴重程度 | 說明 |
-|------|---------|------|
-| 未授權網路連線 | 🔴 高 | 連線至未知外部 IP |
-| 隱私資料存取 | 🔴 高 | 存取瀏覽器 Cookie、密碼庫等 |
-| 系統資源濫用 | 🟡 中 | CPU/記憶體使用超出正常範圍 |
-| 可疑檔案操作 | 🟡 中 | 讀取或修改系統關鍵檔案 |
-| 行為追蹤 | 🟠 中高 | 記錄使用者操作並回傳 |
-| 異常進程活動 | 🟡 中 | 產生不明子進程 |
+| Category | Severity | Description |
+|----------|----------|-------------|
+| Unauthorized Connection | HIGH | Connecting to openclaw.io telemetry/analytics servers |
+| Browser Cookie Access | CRITICAL | Reading Chrome/Firefox/Edge cookie files |
+| Password Store Access | CRITICAL | Accessing SSH keys, browser Login Data, Keychain |
+| Keylogging | CRITICAL | Installing keyboard hooks (XGrabKeyboard, SetWindowsHookEx) |
+| Persistence Installation | CRITICAL | Writing to cron.d, LaunchAgents, Windows Run key |
+| Honeypot Trigger | CRITICAL | Accessing ClawPot bait files (confirmed illegal behavior) |
+| Screen Capture | HIGH | Taking screenshots via BitBlt, XGetImage |
+| Suspicious Child Process | HIGH | Spawning bash, sh, cmd.exe, powershell |
+| Behavior Upload | HIGH | Sending usage_telemetry or user_analytics to remote server |
+| Clipboard Monitoring | HIGH | Using xclip, xsel, pbpaste continuously |
+| Mass File Scanning | HIGH | Scanning large numbers of user files rapidly |
+| Suspicious DNS Query | MEDIUM | Querying *.claw-track.com, *.clawdata.net |
+| Unencrypted Transmission | HIGH | Sending data over HTTP instead of HTTPS |
+| System File Access | MEDIUM | Reading /etc/passwd, /etc/shadow, /etc/hosts |
+| CPU Abuse | MEDIUM | Sustained CPU usage above 80% |
+| Memory Growth | LOW | Anomalous memory growth pattern |
 
 ---
 
-## 免責聲明
+## Disclaimer
 
-ClawPot 僅供合法的安全研究、個人隱私保護及教育用途。請勿將本工具用於任何非法活動。使用者應確保在合法授權的環境下使用本工具。
+ClawPot is intended for legitimate security research, personal privacy protection, and educational use only. Do not use this tool for any illegal activities. Users must ensure they operate within a lawfully authorized environment.
 
 ---
 
-## 授權
+## License
 
-本專案採用 [LICENSE](LICENSE) 授權。
+This project is licensed under the terms of the [LICENSE](LICENSE) file.

@@ -1,7 +1,7 @@
 """
-ClawPot 核心監控引擎
+ClawPot core monitoring engine
 
-整合偵測器、日誌系統與蜜罐，提供統一的監控介面。
+Integrates the detector, logger, and honeypot manager into a unified monitoring interface.
 """
 
 import signal
@@ -17,7 +17,7 @@ from .rules.openclaw_rules import Severity, RuleCategory
 
 
 class MonitorConfig:
-    """監控設定"""
+    """Monitor configuration"""
 
     def __init__(
         self,
@@ -38,12 +38,11 @@ class MonitorConfig:
 
 class ClawPotMonitor:
     """
-    ClawPot 主監控引擎
+    ClawPot main monitoring engine
 
-    協調所有子系統，提供完整的 OpenClaw 行為監控。
+    Coordinates all subsystems to provide complete OpenClaw behavior monitoring.
     """
 
-    # 嚴重程度排序
     _SEVERITY_ORDER = {
         Severity.LOW: 0,
         Severity.MEDIUM: 1,
@@ -64,58 +63,53 @@ class ClawPotMonitor:
         self._start_time: Optional[datetime] = None
 
     def add_alert_callback(self, callback: Callable[[Event], None]):
-        """
-        新增警報回呼函式
-
-        當偵測到事件時，所有回呼都會被呼叫。
-        """
+        """Register a callback to be called whenever an event is detected"""
         self._alert_callbacks.append(callback)
 
     def start(self, deploy_honeypots: bool = True):
         """
-        啟動監控
+        Start monitoring.
 
         Args:
-            deploy_honeypots: 是否自動部署蜜罐誘餌
+            deploy_honeypots: Whether to automatically deploy honeypot bait files
         """
         self._running = True
         self._start_time = datetime.now()
 
         print("=" * 60)
-        print("  ClawPot 監控系統啟動")
+        print("  ClawPot Monitor Started")
         print("=" * 60)
-        print(f"  監控目標: {self.config.target_process}")
+        print(f"  Target process : {self.config.target_process}")
         if self.config.target_pid:
-            print(f"  目標 PID: {self.config.target_pid}")
-        print(f"  規則數量: {self.detector.get_active_rules_count()}")
-        print(f"  啟動時間: {self._start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"  日誌目錄: {self.logger.log_dir}")
+            print(f"  Target PID     : {self.config.target_pid}")
+        print(f"  Active rules   : {self.detector.get_active_rules_count()}")
+        print(f"  Started at     : {self._start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"  Log directory  : {self.logger.log_dir}")
         print("=" * 60)
 
         if deploy_honeypots:
-            print("\n📌 部署蜜罐誘餌...")
+            print("\n[*] Deploying honeypot bait files...")
             self.honeypot.deploy_all()
 
-        # 設定 Ctrl+C 處理
         signal.signal(signal.SIGINT, self._handle_interrupt)
 
-        print("\n🔍 監控中... 按 Ctrl+C 停止\n")
+        print("\n[*] Monitoring... Press Ctrl+C to stop\n")
 
     def stop(self):
-        """停止監控"""
+        """Stop monitoring and print a summary"""
         self._running = False
         elapsed = datetime.now() - self._start_time if self._start_time else None
         duration_str = str(elapsed).split(".")[0] if elapsed else "N/A"
 
         print("\n" + "=" * 60)
-        print("  ClawPot 監控已停止")
+        print("  ClawPot Monitor Stopped")
         print("=" * 60)
-        print(f"  監控時長: {duration_str}")
+        print(f"  Duration         : {duration_str}")
         summary = self.logger.get_summary()
-        print(f"  偵測事件: {summary['total_events']} 件")
-        print(f"  嚴重事件: {summary.get('critical_count', 0)} 件 (CRITICAL)")
-        print(f"  高危事件: {summary.get('high_count', 0)} 件 (HIGH)")
-        print(f"  蜜罐觸發: {summary.get('honeypot_triggers', 0)} 次")
+        print(f"  Total events     : {summary['total_events']}")
+        print(f"  Critical events  : {summary.get('critical_count', 0)}")
+        print(f"  High events      : {summary.get('high_count', 0)}")
+        print(f"  Honeypot triggers: {summary.get('honeypot_triggers', 0)}")
         print("=" * 60)
 
     def report_network_event(
@@ -126,9 +120,9 @@ class ClawPotMonitor:
         pid: int = None,
     ) -> List[Event]:
         """
-        回報一個網路連線事件供分析
+        Report a network connection event for analysis.
 
-        外部監控工具（如 tcpdump、Wireshark 的腳本）可呼叫此方法。
+        External tools (e.g. tcpdump scripts) can call this method.
         """
         events = self.detector.check_network_connection(
             host=host,
@@ -147,11 +141,10 @@ class ClawPotMonitor:
         pid: int = None,
     ) -> List[Event]:
         """
-        回報一個檔案存取事件供分析
+        Report a file access event for analysis.
 
-        外部監控工具（如 inotify、auditd）可呼叫此方法。
+        External tools (e.g. inotify, auditd) can call this method.
         """
-        # 先檢查是否為蜜罐觸發
         is_honeypot = self.honeypot.check_trigger(file_path)
         events = self.detector.check_file_access(
             file_path=file_path,
@@ -160,14 +153,12 @@ class ClawPotMonitor:
             pid=pid or self.config.target_pid,
         )
         if is_honeypot and not events:
-            # 蜜罐觸發但無規則比對時，手動記錄
-            from .rules.openclaw_rules import Rule
             event = self.logger.log_event(
                 rule_id="OC-FILE-002",
-                rule_name="蜜罐誘餌檔案觸發",
+                rule_name="Honeypot Bait File Triggered",
                 category=RuleCategory.HONEYPOT,
                 severity=Severity.CRITICAL,
-                description=f"OpenClaw 存取了蜜罐誘餌檔案: {file_path}",
+                description=f"OpenClaw accessed a honeypot bait file: {file_path}",
                 details={"file_path": file_path, "access_type": access_type},
                 source_process=process or self.config.target_process,
                 source_pid=pid or self.config.target_pid,
@@ -185,9 +176,7 @@ class ClawPotMonitor:
         pid: int = None,
         details: dict = None,
     ) -> List[Event]:
-        """
-        回報一個進程活動事件供分析
-        """
+        """Report a process activity event for analysis"""
         events = self.detector.check_process_activity(
             activity=activity,
             process=process or self.config.target_process,
@@ -204,9 +193,7 @@ class ClawPotMonitor:
         pid: int = None,
         details: dict = None,
     ) -> List[Event]:
-        """
-        回報原始事件資料供全規則比對
-        """
+        """Report raw event data to be matched against all rules"""
         events = self.detector.check_raw_event(
             event_data=event_data,
             process=process or self.config.target_process,
@@ -217,11 +204,11 @@ class ClawPotMonitor:
         return events
 
     def get_events(self, severity: Severity = None, honeypot_only: bool = False):
-        """取得已記錄的事件"""
+        """Get recorded events"""
         return self.logger.get_events(severity=severity, honeypot_only=honeypot_only)
 
     def get_summary(self) -> dict:
-        """取得監控摘要"""
+        """Get monitoring summary"""
         summary = self.logger.get_summary()
         summary["uptime"] = (
             str(datetime.now() - self._start_time).split(".")[0]
@@ -235,9 +222,8 @@ class ClawPotMonitor:
         return summary
 
     def _dispatch_alerts(self, events: List[Event]):
-        """分發警報給所有回呼"""
+        """Dispatch alerts to all registered callbacks"""
         for event in events:
-            # 判斷是否達到警報門檻
             event_severity = Severity(event.severity)
             if (self._SEVERITY_ORDER.get(event_severity, 0) >=
                     self._SEVERITY_ORDER.get(self.config.alert_on_severity, 0)):
@@ -249,29 +235,29 @@ class ClawPotMonitor:
                         pass
 
     def _print_alert(self, event: Event):
-        """在終端顯示警報"""
+        """Print an alert to the terminal"""
         severity_colors = {
-            "low": "\033[94m",      # 藍色
-            "medium": "\033[93m",   # 黃色
-            "high": "\033[91m",     # 紅色
-            "critical": "\033[95m", # 紫色
+            "low": "\033[94m",      # Blue
+            "medium": "\033[93m",   # Yellow
+            "high": "\033[91m",     # Red
+            "critical": "\033[95m", # Magenta
         }
         reset = "\033[0m"
         bold = "\033[1m"
         color = severity_colors.get(event.severity, "")
 
-        honeypot_flag = " 🪤 [蜜罐觸發!]" if event.is_honeypot_trigger else ""
-        print(f"\n{bold}{color}⚠️  警報偵測{honeypot_flag}{reset}")
-        print(f"  時間: {event.timestamp}")
-        print(f"  規則: [{event.rule_id}] {event.rule_name}")
-        print(f"  嚴重: {color}{event.severity.upper()}{reset}")
-        print(f"  類別: {event.category}")
-        print(f"  說明: {event.description}")
+        honeypot_flag = " [HONEYPOT TRIGGERED]" if event.is_honeypot_trigger else ""
+        print(f"\n{bold}{color}[!] ALERT{honeypot_flag}{reset}")
+        print(f"  Time    : {event.timestamp}")
+        print(f"  Rule    : [{event.rule_id}] {event.rule_name}")
+        print(f"  Severity: {color}{event.severity.upper()}{reset}")
+        print(f"  Category: {event.category}")
+        print(f"  Detail  : {event.description}")
         if event.source_process:
-            print(f"  進程: {event.source_process} (PID: {event.source_pid or 'N/A'})")
+            print(f"  Process : {event.source_process} (PID: {event.source_pid or 'N/A'})")
         print()
 
     def _handle_interrupt(self, signum, frame):
-        """處理 Ctrl+C 中斷"""
-        print("\n\n🛑 收到停止訊號...")
+        """Handle Ctrl+C interrupt"""
+        print("\n\n[!] Stop signal received...")
         self.stop()

@@ -1,12 +1,12 @@
 """
-ClawPot 進程監控器
+ClawPot process watcher
 
-監控目標進程（OpenClaw）的即時行為：
-- 開啟的檔案（透過 /proc/<pid>/fd）
-- 網路連線（透過 /proc/<pid>/net/tcp, tcp6, udp）
-- 子進程（透過 /proc/<pid>/task、/proc/<pid>/children）
+Monitors target process (OpenClaw) behavior in real time:
+- Open files  (via /proc/<pid>/fd)
+- Network connections (via /proc/<pid>/net/tcp, tcp6)
+- Child processes (via /proc/<pid>/task, /proc)
 
-不依賴第三方套件，純 Python 標準函式庫 + Linux /proc 介面。
+No third-party dependencies — pure Python standard library + Linux /proc interface.
 """
 
 import os
@@ -22,13 +22,13 @@ from .logger import ClawPotLogger, Event
 
 
 def _hex_to_ip(hex_str: str) -> str:
-    """將 /proc/net/tcp 的 hex IP 轉換為可讀格式"""
+    """Convert a hex IP from /proc/net/tcp to a human-readable address"""
     if len(hex_str) == 8:
         # IPv4: little-endian
         packed = bytes.fromhex(hex_str)
         return socket.inet_ntoa(packed[::-1])
     elif len(hex_str) == 32:
-        # IPv6: 每 4 bytes 一組，little-endian
+        # IPv6: 4-byte groups, little-endian
         parts = [hex_str[i:i+8] for i in range(0, 32, 8)]
         addr = b"".join(bytes.fromhex(p)[::-1] for p in parts)
         return socket.inet_ntop(socket.AF_INET6, addr)
@@ -37,20 +37,20 @@ def _hex_to_ip(hex_str: str) -> str:
 
 def _read_proc_net(pid: int, proto: str) -> List[dict]:
     """
-    讀取 /proc/<pid>/net/<proto> 取得網路連線
+    Read /proc/<pid>/net/<proto> to get network connections.
 
-    回傳格式: [{"local_ip": ..., "local_port": ..., "remote_ip": ..., "remote_port": ..., "state": ...}]
+    Returns: [{"local_ip": ..., "local_port": ..., "remote_ip": ..., "remote_port": ..., "state": ...}]
     """
     net_file = Path(f"/proc/{pid}/net/{proto}")
     if not net_file.exists():
-        # fallback 到全域
+        # Fallback to global
         net_file = Path(f"/proc/net/{proto}")
     if not net_file.exists():
         return []
 
     connections = []
     try:
-        lines = net_file.read_text().splitlines()[1:]  # 跳過標頭
+        lines = net_file.read_text().splitlines()[1:]  # Skip header
         for line in lines:
             parts = line.split()
             if len(parts) < 4:
@@ -76,7 +76,7 @@ def _read_proc_net(pid: int, proto: str) -> List[dict]:
 
 
 def _read_open_files(pid: int) -> Set[str]:
-    """讀取進程開啟的檔案路徑（透過 /proc/<pid>/fd）"""
+    """Read open file paths of a process via /proc/<pid>/fd"""
     fd_dir = Path(f"/proc/{pid}/fd")
     paths = set()
     if not fd_dir.exists():
@@ -85,7 +85,7 @@ def _read_open_files(pid: int) -> Set[str]:
         for fd in fd_dir.iterdir():
             try:
                 target = os.readlink(str(fd))
-                # 只保留真實檔案路徑（排除 socket、pipe 等）
+                # Only keep real file paths (exclude sockets, pipes, etc.)
                 if target.startswith("/") and not target.startswith("/proc"):
                     paths.add(target)
             except (PermissionError, FileNotFoundError, OSError):
@@ -96,10 +96,9 @@ def _read_open_files(pid: int) -> Set[str]:
 
 
 def _get_child_pids(pid: int) -> Set[int]:
-    """取得進程的所有子進程 PID"""
+    """Get all child PIDs of a process"""
     children = set()
     try:
-        # 透過 /proc/<pid>/task/<tid>/children 取得子進程
         task_dir = Path(f"/proc/{pid}/task")
         if task_dir.exists():
             for tid_dir in task_dir.iterdir():
@@ -111,7 +110,7 @@ def _get_child_pids(pid: int) -> Set[int]:
     except (PermissionError, FileNotFoundError, ValueError):
         pass
 
-    # 也掃描 /proc 下的進程，找 ppid 符合的
+    # Also scan /proc for processes whose PPid matches
     try:
         for proc_dir in Path("/proc").iterdir():
             if not proc_dir.name.isdigit():
@@ -130,7 +129,7 @@ def _get_child_pids(pid: int) -> Set[int]:
 
 
 def _get_proc_name(pid: int) -> str:
-    """取得進程名稱"""
+    """Get the name of a process"""
     try:
         comm = Path(f"/proc/{pid}/comm")
         if comm.exists():
@@ -141,19 +140,19 @@ def _get_proc_name(pid: int) -> str:
 
 
 def _is_pid_alive(pid: int) -> bool:
-    """檢查 PID 是否還在運行"""
+    """Check whether a PID is still running"""
     return Path(f"/proc/{pid}").exists()
 
 
 class ProcessWatcher:
     """
-    進程行為監控器
+    Process behavior watcher
 
-    持續觀察目標進程的檔案存取與網路連線，
-    將發現的異常行為回報給 ClawPotMonitor。
+    Continuously observes a target process's file access and network connections,
+    reporting any suspicious behavior to the ClawPotMonitor.
     """
 
-    # 不需要關注的系統函式庫路徑
+    # System library paths to ignore
     IGNORE_FILE_PREFIXES = (
         "/usr/lib/",
         "/usr/share/",
@@ -163,7 +162,7 @@ class ProcessWatcher:
         "/run/",
     )
 
-    # 不需要關注的 IP（本機、廣播等）
+    # Local/loopback IPs to ignore
     IGNORE_REMOTE_IPS = {
         "0.0.0.0",
         "127.0.0.1",
@@ -193,19 +192,19 @@ class ProcessWatcher:
         self._seen_children: Set[int] = set()
 
     def start(self):
-        """在背景執行緒中啟動監控"""
+        """Start the watcher in a background thread"""
         self._running = True
         self._thread = threading.Thread(target=self._watch_loop, daemon=True, name=f"clawpot-watcher-{self.pid}")
         self._thread.start()
 
     def stop(self):
-        """停止監控"""
+        """Stop the watcher"""
         self._running = False
         if self._thread:
             self._thread.join(timeout=5)
 
     def _watch_loop(self):
-        """監控主迴圈"""
+        """Main polling loop"""
         while self._running and _is_pid_alive(self.pid):
             try:
                 self._check_files()
@@ -216,20 +215,19 @@ class ProcessWatcher:
             time.sleep(self.poll_interval)
 
     def _check_files(self):
-        """檢查新開啟的檔案"""
+        """Check for newly opened files"""
         current = _read_open_files(self.pid)
         new_files = current - self._seen_files
         self._seen_files = current
 
         for path in new_files:
-            # 過濾不關心的系統路徑
             if any(path.startswith(prefix) for prefix in self.IGNORE_FILE_PREFIXES):
                 continue
             if self.on_file_access:
                 self.on_file_access(path)
 
     def _check_network(self):
-        """檢查新建立的網路連線"""
+        """Check for new network connections"""
         for proto in ("tcp", "tcp6"):
             connections = _read_proc_net(self.pid, proto)
             for conn in connections:
@@ -237,7 +235,7 @@ class ProcessWatcher:
                 remote_port = conn["remote_port"]
                 state = conn["state"]
 
-                # 只看 ESTABLISHED (01) 狀態，排除本機
+                # Only watch ESTABLISHED (01) connections, skip loopback
                 if state != "01":
                     continue
                 if remote_ip in self.IGNORE_REMOTE_IPS:
@@ -252,7 +250,7 @@ class ProcessWatcher:
                         self.on_network_connect(remote_ip, remote_port)
 
     def _check_children(self):
-        """檢查新產生的子進程"""
+        """Check for newly spawned child processes"""
         current = _get_child_pids(self.pid)
         new_children = current - self._seen_children
         self._seen_children = current

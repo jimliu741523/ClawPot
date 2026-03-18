@@ -1,8 +1,8 @@
 """
-ClawPot 啟動器
+ClawPot launcher
 
-先啟動 ClawPot 監控，再以子進程方式啟動 OpenClaw，
-全程追蹤 OpenClaw 的檔案存取、網路連線與子進程。
+Starts ClawPot monitoring first, then launches OpenClaw as a subprocess,
+tracking its file access, network connections, and child processes throughout.
 """
 
 import os
@@ -21,9 +21,9 @@ from .watcher import ProcessWatcher
 
 class ClawPotRunner:
     """
-    ClawPot 啟動器
+    ClawPot launcher
 
-    使用方式:
+    Usage:
         runner = ClawPotRunner(command=["openclaw", "--some-arg"])
         runner.run()
     """
@@ -58,35 +58,35 @@ class ClawPotRunner:
 
     def run(self) -> int:
         """
-        執行完整流程:
-        1. 部署蜜罐
-        2. 啟動 ClawPot 監控
-        3. 啟動目標程式（OpenClaw）
-        4. 持續監控直到目標程式結束
-        5. 輸出報告
+        Execute the full workflow:
+        1. Deploy honeypots
+        2. Start ClawPot monitoring
+        3. Launch the target program (OpenClaw)
+        4. Monitor until the target exits
+        5. Print the final report
 
-        回傳目標程式的 exit code。
+        Returns the exit code of the target program.
         """
-        # 步驟 1 & 2: 啟動監控
+        # Steps 1 & 2: start monitoring
         self.monitor.start(deploy_honeypots=not self.no_honeypot)
 
-        # 步驟 3: 啟動目標程式
+        # Step 3: launch target
         exit_code = self._launch_and_watch()
 
-        # 步驟 5: 輸出報告
+        # Step 5: print report
         if self.report_on_exit:
             self._print_final_report()
 
         return exit_code
 
     def _launch_and_watch(self) -> int:
-        """啟動目標進程並監控"""
+        """Launch the target process and start watching it"""
         proc_name = Path(self.command[0]).name
-        print(f"\n🚀 啟動目標程式: {' '.join(self.command)}\n")
+        print(f"\n[*] Launching: {' '.join(self.command)}\n")
         print("-" * 60)
 
         try:
-            # stdin 只在真實 tty 時才傳入，避免在測試或非互動環境報錯
+            # Only pass stdin when running in a real tty (avoids errors in tests/CI)
             try:
                 stdin_fd = sys.stdin.fileno()
                 stdin_arg = sys.stdin
@@ -100,24 +100,23 @@ class ClawPotRunner:
                 stdin=stdin_arg,
             )
         except FileNotFoundError:
-            print(f"\n❌ 找不到程式: {self.command[0]}")
-            print("   請確認程式路徑正確，或已安裝於 PATH 中。")
+            print(f"\n[!] Program not found: {self.command[0]}")
+            print("    Please verify the path is correct and the program is installed.")
             self.monitor.stop()
             return 127
         except PermissionError:
-            print(f"\n❌ 無執行權限: {self.command[0]}")
+            print(f"\n[!] Permission denied: {self.command[0]}")
             self.monitor.stop()
             return 126
 
         pid = self._proc.pid
-        # 更新監控設定中的目標 PID
         self.monitor.config.target_pid = pid
         self.monitor.config.target_process = proc_name
 
-        print(f"\n📌 目標 PID: {pid}  程式: {proc_name}")
-        print("🔍 ClawPot 監控中...\n")
+        print(f"\n[*] Target PID: {pid}  Process: {proc_name}")
+        print("[*] ClawPot is watching...\n")
 
-        # 步驟 4: 啟動進程監控器
+        # Step 4: start the process watcher
         self._watcher = ProcessWatcher(
             pid=pid,
             poll_interval=self.poll_interval,
@@ -127,11 +126,11 @@ class ClawPotRunner:
         )
         self._watcher.start()
 
-        # 等待目標程式結束
+        # Wait for the target to finish
         try:
             exit_code = self._proc.wait()
         except KeyboardInterrupt:
-            print("\n\n🛑 使用者中止，正在結束目標程式...")
+            print("\n\n[!] User interrupted — terminating target process...")
             self._proc.terminate()
             try:
                 exit_code = self._proc.wait(timeout=5)
@@ -139,49 +138,48 @@ class ClawPotRunner:
                 self._proc.kill()
                 exit_code = -1
 
-        # 停止監控器
         self._watcher.stop()
         self.monitor.stop()
 
         print(f"\n{'─' * 60}")
-        print(f"  目標程式已結束，exit code: {exit_code}")
+        print(f"  Target exited with code: {exit_code}")
         return exit_code
 
     def _on_file_access(self, file_path: str):
-        """目標進程開啟了新檔案"""
+        """Called when the target process opens a new file"""
         events = self.monitor.report_file_event(
             file_path=file_path,
             access_type="read",
         )
         if events and self.verbose:
             for e in events:
-                print(f"  [檔案] {file_path}")
+                print(f"  [file] {file_path}")
 
     def _on_network_connect(self, remote_ip: str, remote_port: int):
-        """目標進程建立了新網路連線"""
+        """Called when the target process establishes a new network connection"""
         events = self.monitor.report_network_event(
             host=remote_ip,
             port=remote_port,
         )
         if self.verbose and not events:
-            # 即使無違規，verbose 模式也顯示所有連線
-            print(f"  [網路] {remote_ip}:{remote_port}")
+            # Show all connections in verbose mode even if no rule matched
+            print(f"  [net] {remote_ip}:{remote_port}")
 
     def _on_child_spawn(self, child_pid: int, child_name: str):
-        """目標進程產生了子進程"""
+        """Called when the target process spawns a child process"""
         events = self.monitor.report_process_event(
             activity=child_name,
             details={"child_pid": child_pid, "child_name": child_name},
         )
         if self.verbose:
-            flag = " ⚠️" if events else ""
-            print(f"  [子進程] {child_name} (PID {child_pid}){flag}")
+            flag = " [!]" if events else ""
+            print(f"  [child] {child_name} (PID {child_pid}){flag}")
 
     def _print_final_report(self):
-        """在程式結束後印出最終報告"""
+        """Print the final behavior report after the target exits"""
         summary = self.monitor.get_summary()
         if summary["total_events"] == 0:
-            print("\n✅ 監控期間未偵測到任何違規行為。")
+            print("\n[OK] No violations detected during monitoring.")
             return
 
         reporter = Reporter(self.monitor.logger)

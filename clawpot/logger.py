@@ -1,7 +1,7 @@
 """
-ClawPot 日誌系統
+ClawPot logging system
 
-負責記錄所有偵測到的事件與系統活動。
+Records all detected events and system activity.
 """
 
 import json
@@ -20,7 +20,7 @@ DEFAULT_LOG_DIR = Path.home() / ".clawpot" / "logs"
 
 @dataclass
 class Event:
-    """偵測事件"""
+    """A detected security event"""
     event_id: str
     rule_id: str
     rule_name: str
@@ -47,13 +47,13 @@ class Event:
         return (
             f"[{self.timestamp}] {icon} [{self.severity.upper()}] "
             f"{self.rule_id} - {self.rule_name}\n"
-            f"  描述: {self.description}\n"
-            f"  來源: {self.source_process or 'unknown'} (PID: {self.source_pid or 'N/A'})"
+            f"  Description: {self.description}\n"
+            f"  Source: {self.source_process or 'unknown'} (PID: {self.source_pid or 'N/A'})"
         )
 
 
 class ClawPotLogger:
-    """ClawPot 日誌管理器"""
+    """ClawPot log manager"""
 
     def __init__(self, log_dir: Optional[Path] = None, verbose: bool = False):
         self.log_dir = log_dir or DEFAULT_LOG_DIR
@@ -62,7 +62,6 @@ class ClawPotLogger:
         self._events: List[Event] = []
         self._event_counter = 0
 
-        # 設定 Python logging
         self._setup_logging()
 
     def _setup_logging(self):
@@ -95,7 +94,7 @@ class ClawPotLogger:
         source_pid: int = None,
         is_honeypot_trigger: bool = False,
     ) -> Event:
-        """記錄一個偵測事件"""
+        """Record a detection event"""
         event = Event(
             event_id=self._generate_event_id(),
             rule_id=rule_id,
@@ -124,7 +123,7 @@ class ClawPotLogger:
         return event
 
     def _write_event_to_file(self, event: Event):
-        """將事件寫入 JSON 日誌檔"""
+        """Write event to JSONL log file"""
         json_log = self.log_dir / "events.jsonl"
         with open(json_log, "a", encoding="utf-8") as f:
             f.write(json.dumps(event.to_dict(), ensure_ascii=False) + "\n")
@@ -135,7 +134,7 @@ class ClawPotLogger:
         category: Optional[RuleCategory] = None,
         honeypot_only: bool = False,
     ) -> List[Event]:
-        """取得事件列表，支援篩選"""
+        """Get event list with optional filtering"""
         events = self._events
         if severity:
             events = [e for e in events if e.severity == severity.value]
@@ -146,7 +145,7 @@ class ClawPotLogger:
         return events
 
     def get_summary(self) -> dict:
-        """取得事件統計摘要"""
+        """Get event statistics summary"""
         total = len(self._events)
         by_severity = {}
         by_category = {}
@@ -165,5 +164,5 @@ class ClawPotLogger:
         }
 
     def clear_events(self):
-        """清除記憶體中的事件（不影響檔案）"""
+        """Clear in-memory events (does not affect log files)"""
         self._events.clear()

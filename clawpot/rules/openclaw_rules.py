@@ -1,7 +1,7 @@
 """
-OpenClaw 非法行為偵測規則庫
+OpenClaw detection rules library
 
-定義用於識別 OpenClaw 非法行為的規則集合。
+Defines rules for identifying illegal behaviors performed by OpenClaw.
 """
 
 from enum import Enum
@@ -10,7 +10,7 @@ from typing import List, Optional
 
 
 class Severity(Enum):
-    """事件嚴重程度"""
+    """Event severity level"""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -18,39 +18,39 @@ class Severity(Enum):
 
 
 class RuleCategory(Enum):
-    """規則分類"""
-    NETWORK = "network"               # 網路活動
-    FILE_ACCESS = "file_access"       # 檔案存取
-    PRIVACY = "privacy"               # 隱私侵犯
-    RESOURCE_ABUSE = "resource_abuse" # 資源濫用
-    TRACKING = "tracking"             # 行為追蹤
-    PROCESS = "process"               # 進程活動
-    HONEYPOT = "honeypot"             # 蜜罐觸發
+    """Rule category"""
+    NETWORK = "network"               # Network activity
+    FILE_ACCESS = "file_access"       # File access
+    PRIVACY = "privacy"               # Privacy violation
+    RESOURCE_ABUSE = "resource_abuse" # Resource abuse
+    TRACKING = "tracking"             # Behavior tracking
+    PROCESS = "process"               # Process activity
+    HONEYPOT = "honeypot"             # Honeypot trigger
 
 
 @dataclass
 class Rule:
-    """偵測規則定義"""
+    """Detection rule definition"""
     rule_id: str
     name: str
     description: str
     category: RuleCategory
     severity: Severity
-    indicators: List[str]           # 觸發指標（關鍵字、IP、路徑等）
+    indicators: List[str]           # Trigger indicators (keywords, IPs, paths, etc.)
     action: str = "alert"           # alert | block | log
     references: List[str] = field(default_factory=list)
     enabled: bool = True
 
 
-# OpenClaw 非法行為規則庫
+# OpenClaw illegal behavior rule set
 OPENCLAW_RULES: List[Rule] = [
 
-    # ─── 網路連線規則 ──────────────────────────────────────────────────────────
+    # ─── Network rules ────────────────────────────────────────────────────────
 
     Rule(
         rule_id="OC-NET-001",
-        name="未授權外部連線",
-        description="OpenClaw 嘗試連線至非必要的外部伺服器，可能涉及資料外洩",
+        name="Unauthorized External Connection",
+        description="OpenClaw is attempting to connect to an external server, possibly for data exfiltration",
         category=RuleCategory.NETWORK,
         severity=Severity.HIGH,
         indicators=[
@@ -65,8 +65,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-NET-002",
-        name="可疑 DNS 查詢",
-        description="OpenClaw 發起可疑的 DNS 查詢，可能透過 DNS 進行資料回傳",
+        name="Suspicious DNS Query",
+        description="OpenClaw is making suspicious DNS queries, possibly using DNS to exfiltrate data",
         category=RuleCategory.NETWORK,
         severity=Severity.MEDIUM,
         indicators=[
@@ -79,8 +79,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-NET-003",
-        name="未加密資料傳輸",
-        description="OpenClaw 透過 HTTP（非 HTTPS）傳輸使用者資料",
+        name="Unencrypted Data Transmission",
+        description="OpenClaw is transmitting user data over HTTP (unencrypted)",
         category=RuleCategory.NETWORK,
         severity=Severity.HIGH,
         indicators=[
@@ -91,12 +91,12 @@ OPENCLAW_RULES: List[Rule] = [
         action="alert",
     ),
 
-    # ─── 隱私侵犯規則 ──────────────────────────────────────────────────────────
+    # ─── Privacy rules ────────────────────────────────────────────────────────
 
     Rule(
         rule_id="OC-PRIV-001",
-        name="瀏覽器 Cookie 存取",
-        description="OpenClaw 嘗試讀取瀏覽器 Cookie 資料，違反使用者隱私",
+        name="Browser Cookie Access",
+        description="OpenClaw is attempting to read browser cookie files, violating user privacy",
         category=RuleCategory.PRIVACY,
         severity=Severity.CRITICAL,
         indicators=[
@@ -111,8 +111,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-PRIV-002",
-        name="密碼庫存取",
-        description="OpenClaw 嘗試存取系統密碼儲存區或瀏覽器儲存的密碼",
+        name="Password Store Access",
+        description="OpenClaw is attempting to access system password storage or browser-saved credentials",
         category=RuleCategory.PRIVACY,
         severity=Severity.CRITICAL,
         indicators=[
@@ -128,8 +128,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-PRIV-003",
-        name="剪貼簿監聽",
-        description="OpenClaw 持續監聽系統剪貼簿內容",
+        name="Clipboard Monitoring",
+        description="OpenClaw is continuously monitoring the system clipboard",
         category=RuleCategory.PRIVACY,
         severity=Severity.HIGH,
         indicators=[
@@ -141,12 +141,12 @@ OPENCLAW_RULES: List[Rule] = [
         action="alert",
     ),
 
-    # ─── 檔案存取規則 ──────────────────────────────────────────────────────────
+    # ─── File access rules ────────────────────────────────────────────────────
 
     Rule(
         rule_id="OC-FILE-001",
-        name="系統設定檔未授權存取",
-        description="OpenClaw 存取超出其運作範圍的系統設定檔",
+        name="Unauthorized System File Access",
+        description="OpenClaw is accessing system configuration files outside its operating scope",
         category=RuleCategory.FILE_ACCESS,
         severity=Severity.MEDIUM,
         indicators=[
@@ -161,8 +161,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-FILE-002",
-        name="蜜罐誘餌檔案觸發",
-        description="OpenClaw 存取了 ClawPot 設置的蜜罐誘餌檔案",
+        name="Honeypot Bait File Triggered",
+        description="OpenClaw accessed a honeypot bait file planted by ClawPot",
         category=RuleCategory.HONEYPOT,
         severity=Severity.CRITICAL,
         indicators=[
@@ -176,8 +176,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-FILE-003",
-        name="大量檔案掃描",
-        description="OpenClaw 在短時間內掃描大量使用者檔案",
+        name="Mass File Scanning",
+        description="OpenClaw is scanning a large number of user files in a short period",
         category=RuleCategory.FILE_ACCESS,
         severity=Severity.HIGH,
         indicators=[
@@ -187,12 +187,12 @@ OPENCLAW_RULES: List[Rule] = [
         action="alert",
     ),
 
-    # ─── 資源濫用規則 ──────────────────────────────────────────────────────────
+    # ─── Resource abuse rules ─────────────────────────────────────────────────
 
     Rule(
         rule_id="OC-RES-001",
-        name="CPU 異常高使用率",
-        description="OpenClaw 持續佔用過高 CPU 資源，可能進行加密貨幣挖礦或暴力破解",
+        name="Abnormal CPU Usage",
+        description="OpenClaw is continuously consuming excessive CPU, possibly mining cryptocurrency or brute-forcing",
         category=RuleCategory.RESOURCE_ABUSE,
         severity=Severity.MEDIUM,
         indicators=[
@@ -203,8 +203,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-RES-002",
-        name="記憶體異常佔用",
-        description="OpenClaw 記憶體使用量異常增長，可能存在資料囤積行為",
+        name="Abnormal Memory Growth",
+        description="OpenClaw memory usage is growing anomalously, possibly hoarding data",
         category=RuleCategory.RESOURCE_ABUSE,
         severity=Severity.LOW,
         indicators=[
@@ -213,12 +213,12 @@ OPENCLAW_RULES: List[Rule] = [
         action="log",
     ),
 
-    # ─── 行為追蹤規則 ──────────────────────────────────────────────────────────
+    # ─── Tracking rules ───────────────────────────────────────────────────────
 
     Rule(
         rule_id="OC-TRACK-001",
-        name="鍵盤記錄行為",
-        description="OpenClaw 嘗試記錄使用者鍵盤輸入",
+        name="Keylogging Behavior",
+        description="OpenClaw is attempting to record user keyboard input",
         category=RuleCategory.TRACKING,
         severity=Severity.CRITICAL,
         indicators=[
@@ -232,8 +232,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-TRACK-002",
-        name="螢幕截圖行為",
-        description="OpenClaw 在使用者未知情下進行螢幕截圖",
+        name="Screen Capture Behavior",
+        description="OpenClaw is taking screenshots without the user's knowledge",
         category=RuleCategory.TRACKING,
         severity=Severity.HIGH,
         indicators=[
@@ -247,8 +247,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-TRACK-003",
-        name="使用者行為分析回傳",
-        description="OpenClaw 將使用者操作行為資料回傳至外部伺服器",
+        name="Behavior Analytics Upload",
+        description="OpenClaw is uploading user behavior data to an external server",
         category=RuleCategory.TRACKING,
         severity=Severity.HIGH,
         indicators=[
@@ -259,12 +259,12 @@ OPENCLAW_RULES: List[Rule] = [
         action="alert",
     ),
 
-    # ─── 進程活動規則 ──────────────────────────────────────────────────────────
+    # ─── Process activity rules ───────────────────────────────────────────────
 
     Rule(
         rule_id="OC-PROC-001",
-        name="可疑子進程產生",
-        description="OpenClaw 產生非預期的子進程，可能執行惡意程式碼",
+        name="Suspicious Child Process",
+        description="OpenClaw spawned an unexpected child process, possibly executing malicious code",
         category=RuleCategory.PROCESS,
         severity=Severity.HIGH,
         indicators=[
@@ -279,8 +279,8 @@ OPENCLAW_RULES: List[Rule] = [
 
     Rule(
         rule_id="OC-PROC-002",
-        name="持久化機制安裝",
-        description="OpenClaw 嘗試在系統中安裝持久化機制（開機自動啟動）",
+        name="Persistence Mechanism Installation",
+        description="OpenClaw is attempting to install a persistence mechanism (auto-start on boot)",
         category=RuleCategory.PROCESS,
         severity=Severity.CRITICAL,
         indicators=[
@@ -296,17 +296,17 @@ OPENCLAW_RULES: List[Rule] = [
 
 
 def get_rules_by_category(category: RuleCategory) -> List[Rule]:
-    """依分類取得規則"""
+    """Get rules filtered by category"""
     return [r for r in OPENCLAW_RULES if r.category == category and r.enabled]
 
 
 def get_rules_by_severity(severity: Severity) -> List[Rule]:
-    """依嚴重程度取得規則"""
+    """Get rules filtered by severity"""
     return [r for r in OPENCLAW_RULES if r.severity == severity and r.enabled]
 
 
 def get_rule_by_id(rule_id: str) -> Optional[Rule]:
-    """依 ID 取得規則"""
+    """Get a rule by its ID"""
     for rule in OPENCLAW_RULES:
         if rule.rule_id == rule_id:
             return rule
