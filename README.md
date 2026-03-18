@@ -1,5 +1,22 @@
 # ClawPot
 
+```
+   ██████╗██╗      █████╗ ██╗    ██╗██████╗  ██████╗ ████████╗
+  ██╔════╝██║     ██╔══██╗██║    ██║██╔══██╗██╔═══██╗╚══██╔══╝
+  ██║     ██║     ███████║██║ █╗ ██║██████╔╝██║   ██║   ██║
+  ██║     ██║     ██╔══██║██║███╗██║██╔═══╝ ██║   ██║   ██║
+  ╚██████╗███████╗██║  ██║╚███╔███╔╝██║     ╚██████╔╝   ██║
+   ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ ╚═╝      ╚═════╝    ╚═╝
+
+          🍯  Catch the claw. Expose the truth.  🍯
+
+         [ file ]──► Detector ──► [ ALERT ]
+         [ net  ]──►    │    ──► [ LOG   ]
+         [ proc ]──►    │    ──► [ REPORT]
+                        ▼
+                  🪤 Honeypot Trap
+```
+
 **ClawPot** is a honeypot monitoring system designed for OpenClaw. It detects, logs, and exposes OpenClaw's illegal behaviors, giving users real-time visibility and evidence of unauthorized activity.
 
 ---
