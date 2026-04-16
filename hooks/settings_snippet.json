@@ -1,0 +1,28 @@
+{
+  "_comment": "Add this block to your project's .claude/settings.json to enable ClawPot monitoring.",
+  "_comment2": "Replace /path/to/ClawPot with the actual path where you cloned this repo.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /path/to/ClawPot/hooks/pre_tool_use.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /path/to/ClawPot/hooks/post_tool_use.py"
+          }
+        ]
+      }
+    ]
+  }
+}

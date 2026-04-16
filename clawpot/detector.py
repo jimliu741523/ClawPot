@@ -7,7 +7,7 @@ Analyzes OpenClaw's behavior against the rule set to identify illegal activity.
 import re
 from typing import List, Optional, Tuple
 
-from .rules.openclaw_rules import OPENCLAW_RULES, Rule, Severity, RuleCategory
+from .rules.openclaw_rules import ALL_RULES, OPENCLAW_RULES, Rule, Severity, RuleCategory
 from .logger import ClawPotLogger, Event
 
 
@@ -30,9 +30,11 @@ class Detector:
     Compares observed behavior against the rule library to identify illegal activity.
     """
 
-    def __init__(self, logger: ClawPotLogger, custom_rules: List[Rule] = None):
+    def __init__(self, logger: ClawPotLogger, custom_rules: List[Rule] = None, openclaw_only: bool = False):
         self.logger = logger
-        self.rules = list(OPENCLAW_RULES)
+        # By default use ALL_RULES (OpenClaw + general); set openclaw_only=True for narrower scope
+        base = OPENCLAW_RULES if openclaw_only else ALL_RULES
+        self.rules = list(base)
         if custom_rules:
             self.rules.extend(custom_rules)
         # Only keep enabled rules

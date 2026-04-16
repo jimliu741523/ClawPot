@@ -29,7 +29,7 @@ class MonitorConfig:
         alert_on_severity: Severity = Severity.MEDIUM,
     ):
         self.target_pid = target_pid
-        self.target_process = target_process or "openclaw"
+        self.target_process = target_process or "unknown"
         self.verbose = verbose
         self.log_dir = log_dir
         self.poll_interval = poll_interval

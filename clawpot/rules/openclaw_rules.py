@@ -1,7 +1,10 @@
 """
-OpenClaw detection rules library
+ClawPot detection rules library
 
-Defines rules for identifying illegal behaviors performed by OpenClaw.
+Two rule sets:
+- OPENCLAW_RULES : rules specific to known OpenClaw illegal behaviors
+- GENERAL_RULES  : rules that apply to *any* monitored process (including Claude Code)
+- ALL_RULES      : combined set used by default
 """
 
 from enum import Enum
@@ -293,6 +296,167 @@ OPENCLAW_RULES: List[Rule] = [
         action="alert",
     ),
 ]
+
+
+
+# ── General suspicious behavior rules (apply to any process) ─────────────────
+#
+# These rules are not OpenClaw-specific.
+# They catch behaviors that are suspicious regardless of the target program,
+# including Claude Code, electron apps, or any other software.
+
+GENERAL_RULES: List[Rule] = [
+
+    Rule(
+        rule_id="GEN-NET-001",
+        name="Connection to Ads / Tracking Network",
+        description="Process is connecting to known advertising or user-tracking networks",
+        category=RuleCategory.NETWORK,
+        severity=Severity.MEDIUM,
+        indicators=[
+            "doubleclick.net",
+            "googlesyndication.com",
+            "facebook.com/tr",
+            "segment.io",
+            "mixpanel.com",
+            "amplitude.com",
+            "hotjar.com",
+            "fullstory.com",
+            "mouseflow.com",
+        ],
+        action="alert",
+    ),
+
+    Rule(
+        rule_id="GEN-NET-002",
+        name="Unexpected Data Upload",
+        description="Process is uploading data to an external endpoint (large POST/PUT)",
+        category=RuleCategory.NETWORK,
+        severity=Severity.HIGH,
+        indicators=[
+            "upload",
+            "exfil",
+            "data_send",
+            "report_data",
+        ],
+        action="alert",
+    ),
+
+    Rule(
+        rule_id="GEN-PRIV-001",
+        name="Browser Credential Access",
+        description="Process accessed browser-stored passwords or session tokens",
+        category=RuleCategory.PRIVACY,
+        severity=Severity.CRITICAL,
+        indicators=[
+            "Login Data",
+            "cookies.sqlite",
+            "chrome/Default/Cookies",
+            "Cookies/",
+            ".ssh/id_rsa",
+            ".ssh/id_ed25519",
+            "keychain",
+        ],
+        action="alert",
+    ),
+
+    Rule(
+        rule_id="GEN-PRIV-002",
+        name="Environment Variable Secrets Access",
+        description="Process read a file that likely contains API keys or secrets",
+        category=RuleCategory.PRIVACY,
+        severity=Severity.HIGH,
+        indicators=[
+            ".env",
+            ".env.local",
+            ".env.production",
+            "secrets.yaml",
+            "secrets.json",
+            "credentials.json",
+            ".aws/credentials",
+            ".config/gcloud",
+        ],
+        action="alert",
+    ),
+
+    Rule(
+        rule_id="GEN-FILE-001",
+        name="Sensitive System File Access",
+        description="Process accessed a sensitive system file outside its expected scope",
+        category=RuleCategory.FILE_ACCESS,
+        severity=Severity.MEDIUM,
+        indicators=[
+            "/etc/passwd",
+            "/etc/shadow",
+            "/etc/sudoers",
+            "C:\\Windows\\System32\\config\\SAM",
+        ],
+        action="alert",
+    ),
+
+    Rule(
+        rule_id="GEN-TRACK-001",
+        name="Keylogging System Call",
+        description="Process invoked a system-level keyboard capture API",
+        category=RuleCategory.TRACKING,
+        severity=Severity.CRITICAL,
+        indicators=[
+            "keyboard_hook",
+            "SetWindowsHookEx",
+            "XGrabKeyboard",
+            "CGEventTapCreate",
+        ],
+        action="alert",
+    ),
+
+    Rule(
+        rule_id="GEN-TRACK-002",
+        name="Screen Capture",
+        description="Process performed a screen capture without user interaction",
+        category=RuleCategory.TRACKING,
+        severity=Severity.HIGH,
+        indicators=[
+            "screenshot",
+            "screen_capture",
+            "BitBlt",
+            "XGetImage",
+            "CGWindowListCreateImage",
+        ],
+        action="alert",
+    ),
+
+    Rule(
+        rule_id="GEN-PROC-001",
+        name="Shell Spawned",
+        description="Process spawned an interactive shell, which may indicate command injection",
+        category=RuleCategory.PROCESS,
+        severity=Severity.HIGH,
+        indicators=[
+            "/bin/sh",
+            "/bin/bash",
+            "/bin/zsh",
+            "cmd.exe",
+            "powershell.exe",
+        ],
+        action="alert",
+    ),
+
+    Rule(
+        rule_id="GEN-HONEY-001",
+        name="Honeypot Bait File Accessed",
+        description="Process accessed a ClawPot honeypot bait file — confirmed suspicious behavior",
+        category=RuleCategory.HONEYPOT,
+        severity=Severity.CRITICAL,
+        indicators=[
+            "clawpot_honey_",
+            ".clawpot_bait",
+        ],
+        action="alert",
+    ),
+]
+
+# Combined rule set used by default
+ALL_RULES: List[Rule] = OPENCLAW_RULES + GENERAL_RULES
 
 
 def get_rules_by_category(category: RuleCategory) -> List[Rule]:

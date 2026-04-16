@@ -218,7 +218,7 @@ Examples:
     # monitor subcommand
     monitor_parser = subparsers.add_parser("monitor", help="Standalone monitoring mode")
     monitor_parser.add_argument("--pid", type=int, help="Monitor a specific PID")
-    monitor_parser.add_argument("--process", default="openclaw", help="Target process name")
+    monitor_parser.add_argument("--process", default=None, help="Target process name to monitor")
     monitor_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     monitor_parser.add_argument("--interval", type=float, default=1.0, help="Polling interval (seconds)")
     monitor_parser.add_argument("--no-honeypot", action="store_true", help="Do not deploy honeypots")
